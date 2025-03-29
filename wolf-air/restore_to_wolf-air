@@ -1,18 +1,34 @@
 #! /bin/bash
 set -euo pipefail
 
+
+
 # Restore selected files from a local Time Machine snapshot on the ORIGINAL Mac
 # Sends data to LOANER computer (named 'wolf-air') via rsync over SSH
 
-SNAPSHOT_DATE="2025-03-28-135002"
-SNAPSHOT_PATH="/Volumes/com.apple.TimeMachine.${SNAPSHOT_DATE}.local"
-BACKUP_SRC_HOME="$SNAPSHOT_PATH/Users/wendy"
-DEST_HOME="/Users/wendy"
+LOGFILE="$HOME/restore_to_loaner_$(date +%Y%m%d_%H%M%S).log"
+function log_it() {
+    if (( $# > 0 )); then
+        printf "%s\n" "$*" | tee -a "$LOGFILE"
+    else
+        tee -a "$LOGFILE"
+    fi
+}
+
+SNAPSHOT_DATE="2025-03-28-131701"
+SNAPSHOT_ROOT_PATH="/Volumes/com.apple.TimeMachine.${SNAPSHOT_DATE}.local"
+
+BACKUP_HOME="$HOME"
+RECOVERY_HOME="/Users/wendy"
 
 # Hostnames
+BACKUP_HOSTNAME="Wendys-MacBook"
 RESTORE_HOSTNAME="wolf-air"
-BACKUP_HOSTNAME="wendy-pro"
-RECOVERY_SRC_HOME="$RESTORE_HOSTNAME.local:$DEST_HOME"
+
+# Paths
+TIMEMACHINE_SOURCE_PATH="$SNAPSHOT_ROOT_PATH/$BACKUP_HOME"
+RESTORE_NETWORK_ADDRESS="$RESTORE_HOSTNAME.local"
+TIMEMACHINE_DESTINATION_PATH="$RESTORE_NETWORK_ADDRESS:$RECOVERY_HOME"
 
 # Dry run mode by default (set to "" to disable)
 DRY_RUN_FLAG="--dry-run"
@@ -20,27 +36,45 @@ DRY_RUN_FLAG="--dry-run"
 # Precondition: Ensure this script is running on the BACKUP host
 CURRENT_HOSTNAME=$(scutil --get LocalHostName)
 if [ "$CURRENT_HOSTNAME" != "$BACKUP_HOSTNAME" ]; then
-  echo "Error: This script must be run on $BACKUP_HOSTNAME. Current host is $CURRENT_HOSTNAME. Exiting."
+  log_it "Error: This script must be run on $BACKUP_HOSTNAME. Current host is $CURRENT_HOSTNAME. Exiting."
   exit 1
 fi
 
-# Mount the snapshot
-sudo tmutil mountsnapshot / "$SNAPSHOT_DATE"
+
+# tmutil(1)...
+log_it tmutil...
+tmutil listlocalsnapshots ~ 2>&1 | log_it
+
+log_it diskutil list...
+diskutil apfs listSnapshots /System/Volumes/Data 2>&1 | log_it
+
+(
+    echo diskutil mount...
+    command="sudo diskutil apfs mountSnapshot /System/Volumes/Data -name com.apple.TimeMachine.${SNAPSHOT_DATE}"
+    echo "Executing '$command'"
+    $command 
+) 2>&1 | log_it
+
+
+# fakery...
+# sudo tmutil mountsnapshot / "$SNAPSHOT_DATE"
 
 # Wait for it to show up
-if [ ! -d "$SNAPSHOT_PATH" ]; then
-  echo "Snapshot did not mount as expected. Exiting."
+if [ ! -d "$SNAPSHOT_ROOT_PATH" ]; then
+  log_it "Snapshot did not mount as expected. Exiting."
   exit 1
 fi
 
 # Log file
-LOGFILE="$HOME/restore_to_loaner_$(date +%Y%m%d_%H%M%S).log"
-echo "Restoring from snapshot $SNAPSHOT_DATE to $RESTORE_HOSTNAME" | tee "$LOGFILE"
+log_it "Restoring from snapshot $SNAPSHOT_DATE to $RESTORE_HOSTNAME" 
+
+exit 17
+
 
 copy_folder() {
   local folder="$1"
-  echo "Copying $folder to LOANER..." | tee -a "$LOGFILE"
-  rsync -avh $DRY_RUN_FLAG --progress "$BACKUP_SRC_HOME/$folder" "$RECOVERY_SRC_HOME/" >> "$LOGFILE" 2>&1
+  log_it "Copying $folder to LOANER..."
+  rsync -avh $DRY_RUN_FLAG --progress "$TIMEMACHINE_SOURCE_PATH/$folder" "$TIMEMACHINE_DESTINATION_PATH/" 2>&1 | log_it
 }
 
 # Copy desired folders
@@ -56,10 +90,8 @@ copy_folder "Library/Mail"
 copy_folder "Library/Containers/com.apple.mail"
 copy_folder "Library/Preferences/com.apple.mail.plist"
 
-(
-echo "Restore completed at $(date). Check $LOGFILE for details."
+log_it "Restore completed at $(date). Check $LOGFILE for details."
 
 # Reminder to unmount if needed
-echo "To unmount snapshot:"
-echo "sudo umount '$SNAPSHOT_PATH'"
-) | tee -a "$LOGFILE"
+log_it "To unmount snapshot:"
+log_it "sudo umount '$SNAPSHOT_ROOT_PATH'"
