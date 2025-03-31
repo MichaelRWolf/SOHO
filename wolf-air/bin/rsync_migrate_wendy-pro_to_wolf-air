@@ -6,6 +6,8 @@ set -euo pipefail
 #
 # Does NOT use Time Machine or snapshots — live copy only
 
+: "${DRY_RUN_FLAG:=--dry-run}"
+
 SOURCE_HOSTNAME="wendy-pro"
 DESTINATION_HOSTNAME="wolf-air"
 SOURCE_DIR="$HOME"
@@ -20,9 +22,8 @@ mkdir -p "$LOG_DIR"                                    # Ensure logs dir exists
 
 TIMESTAMP="$(date +%Y%m%dT%H:%M:%S)"
 
-LOGFILE="${LOG_DIR}/${TIMESTAMP}$_${BINARY_NAME}.log"
+LOGFILE="${LOG_DIR}/${TIMESTAMP}_${BINARY_NAME}${DRY_RUN_FLAG}.log"
 
-DRY_RUN_FLAG="--dry-run"  # Set to "" when ready to go live
 
 # Confirm we're on the correct machine
 CURRENT_HOSTNAME=$(scutil --get LocalHostName)
@@ -86,7 +87,7 @@ folders=(
 log_it "For these folders: ${folders[*]}"
 
 for folder in "${folders[@]}"; do
-    log_it "🔄 Copying $folder to LOANER..."
+    log_it "🔄 Copying $folder from ${SOURCE_HOSTNAME} to ${DESTINATION_HOSTNAME}..."
     run_rsync "$SOURCE_DIR/$folder" "$destination_host_spec:$DESTINATION_HOME/"
 done
 
