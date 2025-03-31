@@ -15,5 +15,5 @@ for dir in 					\
     Library/Containers/com.apple.mail		\
     Library/Preferences/com.apple.mail.plist	\
 ; do
-    du -s -h $dir
+    du -s $dir
 done

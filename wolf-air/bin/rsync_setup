@@ -2,3 +2,51 @@
 set -euo pipefail
 
 launchctl bootout gui/$(id -u) /System/Library/LaunchAgents/com.apple.mail.plist 2>/dev/null || echo "maild may not have been running"
+
+
+
+
+
+#!/bin/bash
+# rsync_setup — prepare source and destination for rsync
+
+set -euo pipefail
+
+THIS_HOSTNAME=$(scutil --get LocalHostName)
+SOURCE_HOSTNAME="wendy-pro"
+DESTINATION_HOSTNAME="wolf-air"
+
+log_it() {
+    echo "$@" | tee -a "$LOGFILE"
+}
+
+LOGFILE="$HOME/rsync_setup_$(date +%Y%m%d_%H%M%S).log"
+log_it "📋 Starting rsync setup on $THIS_HOSTNAME"
+
+# Guard: Only run Mail.app shutdown on SOURCE
+if [[ "$THIS_HOSTNAME" == "$SOURCE_HOSTNAME" ]]; then
+  log_it "📦 On SOURCE: $SOURCE_HOSTNAME"
+  log_it "📴 Stopping mail-related processes..."
+
+  MAILD_PID=$(pgrep -x maild || true)
+  if [[ -n "$MAILD_PID" ]]; then
+    log_it "Killing maild (PID: $MAILD_PID)"
+    kill "$MAILD_PID"
+    kill -9 "$MAILD_PID"
+  else
+    log_it "maild not running"
+  fi
+
+  # log_it "🛑 Turning off Wi-Fi to pause Mail.app connectivity"
+  # networksetup -setairportpower en0 off || log_it "❗ Could not disable Wi-Fi"
+
+  log_it "✅ Source prep done."
+
+elif [[ "$THIS_HOSTNAME" == "$DESTINATION_HOSTNAME" ]]; then
+  log_it "📦 On DESTINATION: $DESTINATION_HOSTNAME"
+  log_it "⚠️ Nothing required at this time, but you may want to close Finder windows that point to rsync targets."
+else
+  log_it "❌ Unknown host: $THIS_HOSTNAME — skipping setup"
+fi
+
+log_it "🏁 rsync setup complete."

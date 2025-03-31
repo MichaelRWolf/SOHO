@@ -1,14 +1,15 @@
 #!/bin/bash
 set -euo pipefail
-# Restore selected files from ORIGINAL (Wendys-MacBook) to LOANER (wolf-air) via rsync
+# Restore selected files via rsync(1)
+#     from ORIGINAL (wendy-pro, FKA Wendys-MacBook) 
+#     to LOANER (wolf-air) via rsync
+#
 # Does NOT use Time Machine or snapshots — live copy only
 
 SOURCE_HOSTNAME="wendy-pro"
 DESTINATION_HOSTNAME="wolf-air"
 SOURCE_DIR="$HOME"
 DESTINATION_HOME="/Users/wendy"
-
-
 
 BINARY_PATH="$(readlink -f "$0")"                      # Full path to the binary
 BINARY_DIR="$(dirname "$BINARY_PATH")"                 # Directory containing the binary
@@ -18,11 +19,8 @@ LOG_DIR="${BINARY_DIR}/../logs"                        # logs directory alongsid
 mkdir -p "$LOG_DIR"                                    # Ensure logs dir exists
 
 TIMESTAMP="$(date +%Y%m%dT%H:%M:%S)"
-LOGFILE="${LOG_DIR}/${BINARY_NAME}_log_${TIMESTAMP}.log"
 
-
-# LOGFILE="$HOME/$(basename "${0}")_$(date +%Y%m%d_%H%M%S).log"
-
+LOGFILE="${LOG_DIR}/${TIMESTAMP}$_{BINARY_NAME}.log"
 
 DRY_RUN_FLAG="--dry-run"  # Set to "" when ready to go live
 
@@ -47,8 +45,14 @@ run_rsync() {
     local source="$1"
     local dest="$2"
 
+    if ! [[ -d "$source" ]]; then
+	log_it "Skipping non-existant directory: '$source'"
+	return
+    fi
+
     # Log the human-readable command
     log_it "Running command: rsync -avh $DRY_RUN_FLAG --progress --exclude stuff \"$source\" $dest"
+
 
     # Execute the actual command
     rsync -avh $DRY_RUN_FLAG --progress \
@@ -57,7 +61,7 @@ run_rsync() {
         --exclude '*/.DS_Store' \
         --exclude '*/.Trash' \
         --exclude '*/.TemporaryItems' \
-        "$source" "$dest"
+        "$source" "$dest" 2>&1 | log_it
 }
 
 # Start logging
