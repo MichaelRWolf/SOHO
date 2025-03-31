@@ -7,7 +7,23 @@ SOURCE_HOSTNAME="wendy-pro"
 DESTINATION_HOSTNAME="wolf-air"
 SOURCE_DIR="$HOME"
 DESTINATION_HOME="/Users/wendy"
-LOGFILE="$HOME/$(basename "${0}")_$(date +%Y%m%d_%H%M%S).log"
+
+
+
+BINARY_PATH="$(readlink -f "$0")"                      # Full path to the binary
+BINARY_DIR="$(dirname "$BINARY_PATH")"                 # Directory containing the binary
+BINARY_NAME="$(basename "$BINARY_PATH")"               # Name of the binary (e.g. "binary_name")
+
+LOG_DIR="${BINARY_DIR}/../logs"                        # logs directory alongside the binary dir
+mkdir -p "$LOG_DIR"                                    # Ensure logs dir exists
+
+TIMESTAMP="$(date +%Y%m%dT%H:%M:%S)"
+LOGFILE="${LOG_DIR}/${BINARY_NAME}_log_${TIMESTAMP}.log"
+
+
+# LOGFILE="$HOME/$(basename "${0}")_$(date +%Y%m%d_%H%M%S).log"
+
+
 DRY_RUN_FLAG="--dry-run"  # Set to "" when ready to go live
 
 # Confirm we're on the correct machine
