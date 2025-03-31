@@ -27,8 +27,13 @@ RESTORE_HOSTNAME="wolf-air"
 
 # Paths
 TIMEMACHINE_SOURCE_PATH="$SNAPSHOT_ROOT_PATH/$BACKUP_HOME"
+
 RESTORE_NETWORK_ADDRESS="$RESTORE_HOSTNAME.local"
 TIMEMACHINE_DESTINATION_PATH="$RESTORE_NETWORK_ADDRESS:$RECOVERY_HOME"
+
+# Fuck TM.  Go live with rsync(1)...
+RSYNC_SOURCE_PATH=$HOME
+RSYNC_DESTINATION_PATH=$TIMEMACHINE_DESTINATION_PATH
 
 # Dry run mode by default (set to "" to disable)
 DRY_RUN_FLAG="--dry-run"
@@ -42,39 +47,46 @@ fi
 
 
 # tmutil(1)...
-log_it tmutil...
-tmutil listlocalsnapshots ~ 2>&1 | log_it
+function do_tmutil_fuckery() {
 
-log_it diskutil list...
-diskutil apfs listSnapshots /System/Volumes/Data 2>&1 | log_it
+    log_it tmutil...
+    tmutil listlocalsnapshots ~ 2>&1 | log_it
 
-(
-    echo diskutil mount...
-    command="sudo diskutil apfs mountSnapshot /System/Volumes/Data -name com.apple.TimeMachine.${SNAPSHOT_DATE}"
-    echo "Executing '$command'"
-    $command 
-) 2>&1 | log_it
+    log_it diskutil list...
+    diskutil apfs listSnapshots /System/Volumes/Data 2>&1 | log_it
+    
+    (
+	echo diskutil mount...
+	command="sudo diskutil apfs mountSnapshot /System/Volumes/Data -name com.apple.TimeMachine.${SNAPSHOT_DATE}"
+	echo "Executing '$command'"
+	$command 
+    ) 2>&1 | log_it
+    
+    
+    # fakery...
+    # sudo tmutil mountsnapshot / "$SNAPSHOT_DATE"
+    
+    # Wait for it to show up
+    if [ ! -d "$SNAPSHOT_ROOT_PATH" ]; then
+	log_it "Snapshot did not mount as expected. Exiting."
+	exit 1
+    fi
+}
 
+false && (log_it "WTF - Why are you doing fuckery"; do_tmutil_fuckery)
 
-# fakery...
-# sudo tmutil mountsnapshot / "$SNAPSHOT_DATE"
-
-# Wait for it to show up
-if [ ! -d "$SNAPSHOT_ROOT_PATH" ]; then
-  log_it "Snapshot did not mount as expected. Exiting."
-  exit 1
-fi
 
 # Log file
-log_it "Restoring from snapshot $SNAPSHOT_DATE to $RESTORE_HOSTNAME" 
-
-exit 17
+log_it "Restoring: $RSYNC_SOURCE_PATH --> $RSYNC_DESTINATION_PATH"
 
 
 copy_folder() {
   local folder="$1"
   log_it "Copying $folder to LOANER..."
-  rsync -avh $DRY_RUN_FLAG --progress "$TIMEMACHINE_SOURCE_PATH/$folder" "$TIMEMACHINE_DESTINATION_PATH/" 2>&1 | log_it
+  # rsync -avh $DRY_RUN_FLAG --progress "$TIMEMACHINE_SOURCE_PATH/$folder" "$TIMEMACHINE_DESTINATION_PATH/" 2>&1 | log_it
+  set -x
+  rsync -avh $DRY_RUN_FLAG --progress "$RSYNC_SOURCE_PATH/$folder" "$RSYNC_DESTINATION_PATH/" 2>&1 | log_it
+  set +x
 }
 
 # Copy desired folders

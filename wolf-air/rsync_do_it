@@ -1,0 +1,73 @@
+#!/bin/bash
+set -euo pipefail
+# Restore selected files from ORIGINAL (Wendys-MacBook) to LOANER (wolf-air) via rsync
+# Does NOT use Time Machine or snapshots — live copy only
+
+SOURCE_HOSTNAME="wendy-pro"
+DESTINATION_HOSTNAME="wolf-air"
+SOURCE_DIR="$HOME"
+DESTINATION_HOME="/Users/wendy"
+LOGFILE="$HOME/$(basename "${0}")_$(date +%Y%m%d_%H%M%S).log"
+DRY_RUN_FLAG="--dry-run"  # Set to "" when ready to go live
+
+# Confirm we're on the correct machine
+CURRENT_HOSTNAME=$(scutil --get LocalHostName)
+if [ "$CURRENT_HOSTNAME" != "$SOURCE_HOSTNAME" ]; then
+  echo "❌ ERROR: This script must be run on $SOURCE_HOSTNAME (currently on $CURRENT_HOSTNAME). Exiting."
+  exit 1
+fi
+
+# Logging function
+log_it() {
+    if (( $# > 0 )); then
+        printf "%s\n" "$*" | tee -a "$LOGFILE"
+    else
+        tee -a "$LOGFILE"
+    fi
+}
+
+# Rsync wrapper function
+run_rsync() {
+    local source="$1"
+    local dest="$2"
+
+    # Log the human-readable command
+    log_it "Running command: rsync -avh $DRY_RUN_FLAG --progress --exclude stuff \"$source\" $dest"
+
+    # Execute the actual command
+    rsync -avh $DRY_RUN_FLAG --progress \
+        --exclude 'Library/Caches' \
+        --exclude 'Library/Logs' \
+        --exclude '*/.DS_Store' \
+        --exclude '*/.Trash' \
+        --exclude '*/.TemporaryItems' \
+        "$source" "$dest"
+}
+
+# Start logging
+source_host_spec="$SOURCE_HOSTNAME.local"
+destination_host_spec="$DESTINATION_HOSTNAME.local"
+log_it "🚀 Restoring: $source_host_spec -> $destination_host_spec"
+
+folders=(
+    Desktop
+    Documents
+    Downloads
+    Movies
+    Music
+    Pictures
+    Public
+    Library/Accounts
+    Library/Mail
+    Library/Containers/com.apple.mail
+    Library/Preferences/com.apple.mail.plist
+)
+
+log_it "For these folders: ${folders[*]}"
+
+for folder in "${folders[@]}"; do
+    log_it "🔄 Copying $folder to LOANER..."
+    run_rsync "$SOURCE_DIR/$folder" "$destination_host_spec:$DESTINATION_HOME/"
+done
+
+log_it "✅ Restore completed. Log saved to: $LOGFILE"

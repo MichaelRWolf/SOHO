@@ -1,0 +1,8 @@
+#! /bin/bash
+set -euo pipefail
+
+set -x
+
+ps aux | grep -i maild
+
+lsof +D "$HOME/Library/Mail"

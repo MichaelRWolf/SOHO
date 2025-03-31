@@ -1,0 +1,19 @@
+#! /bin/bash
+set -euo pipefail
+
+cd $HOME
+
+for dir in 					\
+    Desktop					\
+    Documents					\
+    Downloads					\
+    Movies					\
+    Music					\
+    Pictures					\
+    Public					\
+    Library/Mail				\
+    Library/Containers/com.apple.mail		\
+    Library/Preferences/com.apple.mail.plist	\
+; do
+    du -s -h $dir
+done

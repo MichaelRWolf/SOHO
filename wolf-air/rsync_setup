@@ -1,0 +1,4 @@
+#!/bin/bash
+set -euo pipefail
+
+launchctl bootout gui/$(id -u) /System/Library/LaunchAgents/com.apple.mail.plist 2>/dev/null || echo "maild may not have been running"
